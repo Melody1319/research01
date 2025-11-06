@@ -18,7 +18,6 @@ export default function CompressPage() {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 清理 URL 对象以防止内存泄漏
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -28,7 +27,6 @@ export default function CompressPage() {
 
   const processFile = useCallback((file: File) => {
     if (file && file.type.startsWith("image/")) {
-      // 清理旧的 URL
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       if (compressedUrl) URL.revokeObjectURL(compressedUrl);
 
@@ -37,7 +35,6 @@ export default function CompressPage() {
       setPreviewUrl(url);
       setCompressedUrl("");
 
-      // 获取图片尺寸
       const img = new Image();
       img.onload = () => {
         setFileInfo({
@@ -48,7 +45,7 @@ export default function CompressPage() {
       };
       img.src = url;
     } else {
-      alert("请选择有效的图片文件（JPG、PNG、GIF、WebP 等）");
+      alert("请选择有效的图片文件");
     }
   }, [previewUrl, compressedUrl]);
 
@@ -60,7 +57,6 @@ export default function CompressPage() {
     [processFile]
   );
 
-  // 拖拽功能
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -95,7 +91,6 @@ export default function CompressPage() {
 
     setIsProcessing(true);
     try {
-      // 创建一个 canvas 来压缩图片
       const img = new Image();
       img.src = previewUrl;
 
@@ -106,28 +101,16 @@ export default function CompressPage() {
 
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        throw new Error("无法创建 Canvas 上下文");
-      }
+      if (!ctx) throw new Error("无法创建 Canvas 上下文");
 
       canvas.width = img.width;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
 
-      // 根据原始文件类型选择输出格式
       let outputType = "image/jpeg";
-      let fileExtension = "jpg";
+      if (selectedFile.type === "image/png") outputType = "image/png";
+      else if (selectedFile.type === "image/webp") outputType = "image/webp";
 
-      // PNG 格式保持透明度
-      if (selectedFile.type === "image/png") {
-        outputType = "image/png";
-        fileExtension = "png";
-      } else if (selectedFile.type === "image/webp") {
-        outputType = "image/webp";
-        fileExtension = "webp";
-      }
-
-      // 转换为压缩后的 blob
       canvas.toBlob(
         (blob) => {
           if (blob) {
@@ -136,8 +119,6 @@ export default function CompressPage() {
             setFileInfo((prev) =>
               prev ? { ...prev, compressedSize: blob.size } : null
             );
-          } else {
-            alert("压缩失败，请重试");
           }
           setIsProcessing(false);
         },
@@ -145,8 +126,7 @@ export default function CompressPage() {
         outputType === "image/png" ? undefined : quality / 100
       );
     } catch (error) {
-      console.error("压缩失败:", error);
-      alert("压缩失败: " + (error instanceof Error ? error.message : "未知错误"));
+      alert("压缩失败");
       setIsProcessing(false);
     }
   }, [selectedFile, previewUrl, quality]);
@@ -156,13 +136,10 @@ export default function CompressPage() {
 
     const a = document.createElement("a");
     a.href = compressedUrl;
-
-    // 保持原始文件扩展名
     const originalName = selectedFile.name;
     const extensionMatch = originalName.match(/\.[^.]+$/);
     const extension = extensionMatch ? extensionMatch[0] : ".jpg";
     const nameWithoutExt = originalName.replace(/\.[^.]+$/, "");
-
     a.download = `compressed_${nameWithoutExt}${extension}`;
     document.body.appendChild(a);
     a.click();
@@ -178,10 +155,7 @@ export default function CompressPage() {
     setCompressedUrl("");
     setFileInfo(null);
     setQuality(80);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }, [previewUrl, compressedUrl]);
 
   const formatFileSize = (bytes: number) => {
@@ -189,7 +163,7 @@ export default function CompressPage() {
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
   const compressionRate =
@@ -202,43 +176,35 @@ export default function CompressPage() {
       : "0";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-slate-900">
       {/* Header */}
-      <header className="border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center">
+      <header className="border-b border-white/20 dark:border-gray-800/50 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center gap-4">
           <Link
             href="/"
-            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+            className="group flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white hover:scale-110 transition-transform duration-300 shadow-lg"
           >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </Link>
-          <h1 className="ml-4 text-2xl font-bold text-gray-900 dark:text-white">
-            图片压缩
-          </h1>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              图片压缩
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">高效压缩，极速体验</p>
+          </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Upload Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 dark:border-gray-700/50">
           <div
-            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
+            className={`relative border-3 border-dashed rounded-2xl p-16 text-center transition-all duration-300 ${
               isDragging
-                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-105"
-                : "border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400"
+                ? "border-blue-500 bg-blue-100/50 dark:bg-blue-900/30 scale-[1.02]"
+                : "border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10"
             }`}
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
@@ -253,23 +219,20 @@ export default function CompressPage() {
               className="hidden"
               id="file-upload"
             />
-            <label
-              htmlFor="file-upload"
-              className="cursor-pointer flex flex-col items-center"
-            >
-              <div className="text-6xl mb-4">
-                {isDragging ? "📥" : selectedFile ? "✅" : "📁"}
+            <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
+              <div className="w-24 h-24 mb-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-3xl flex items-center justify-center transform hover:scale-110 hover:rotate-6 transition-all duration-300 shadow-xl">
+                <span className="text-5xl">{isDragging ? "📥" : selectedFile ? "✅" : "📁"}</span>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
                 {selectedFile
                   ? selectedFile.name
                   : isDragging
-                  ? "松开鼠标上传"
-                  : "点击选择图片或拖拽上传"}
+                  ? "松开上传图片"
+                  : "点击或拖拽上传图片"}
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-gray-600 dark:text-gray-400 text-lg">
                 {selectedFile
-                  ? `${formatFileSize(selectedFile.size)} - ${fileInfo?.width} × ${fileInfo?.height}px`
+                  ? `${formatFileSize(selectedFile.size)} • ${fileInfo?.width} × ${fileInfo?.height}px`
                   : "支持 JPG、PNG、GIF、WebP 等格式"}
               </p>
             </label>
@@ -277,18 +240,14 @@ export default function CompressPage() {
 
           {/* Quality Slider */}
           {selectedFile && (
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-3">
-                <label className="block text-sm font-medium text-gray-900 dark:text-white">
-                  压缩质量: {quality}%
+            <div className="mt-10 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 rounded-2xl p-8 border border-blue-200/50 dark:border-blue-800/30">
+              <div className="flex items-center justify-between mb-5">
+                <label className="text-xl font-bold text-gray-900 dark:text-white">
+                  压缩质量
                 </label>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {quality < 50
-                    ? "低质量 - 体积最小"
-                    : quality < 80
-                    ? "中等质量 - 平衡"
-                    : "高质量 - 体积较大"}
-                </span>
+                <div className="px-5 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-bold text-lg shadow-lg">
+                  {quality}%
+                </div>
               </div>
               <input
                 type="range"
@@ -297,70 +256,44 @@ export default function CompressPage() {
                 value={quality}
                 onChange={(e) => {
                   setQuality(Number(e.target.value));
-                  setCompressedUrl(""); // 重置压缩结果
+                  setCompressedUrl("");
                 }}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer dark:bg-gray-700"
                 style={{
-                  background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${quality}%, #e5e7eb ${quality}%, #e5e7eb 100%)`,
+                  background: `linear-gradient(to right, #3b82f6 0%, #06b6d4 ${quality}%, #e5e7eb ${quality}%, #e5e7eb 100%)`,
                 }}
               />
-              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-2">
-                <span>10%</span>
-                <span>50%</span>
-                <span>100%</span>
+              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mt-3 font-medium">
+                <span>最小</span>
+                <span>平衡</span>
+                <span>最大</span>
               </div>
             </div>
           )}
 
           {/* Action Buttons */}
           {selectedFile && (
-            <div className="mt-6 flex gap-4">
+            <div className="mt-8 flex gap-4">
               {!compressedUrl ? (
                 <>
                   <button
                     onClick={handleCompress}
                     disabled={isProcessing}
-                    className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-4 rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                    className="flex-1 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 text-white py-5 rounded-2xl font-bold text-lg hover:shadow-2xl hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl"
                   >
-                    {isProcessing ? (
-                      <span className="flex items-center justify-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        压缩中...
-                      </span>
-                    ) : (
-                      "🗜️ 开始压缩"
-                    )}
+                    {isProcessing ? "压缩中..." : "🗜️ 开始压缩"}
                   </button>
                   <button
                     onClick={handleReset}
-                    className="px-6 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                    className="px-8 py-5 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
                   >
-                    重新选择
+                    重置
                   </button>
                 </>
               ) : (
                 <button
                   onClick={handleReset}
-                  className="w-full px-6 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                  className="w-full px-8 py-5 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
                 >
                   🔄 处理新图片
                 </button>
@@ -371,48 +304,30 @@ export default function CompressPage() {
 
         {/* Preview Section */}
         {(previewUrl || compressedUrl) && (
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Original Image */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  原始图片
-                </h3>
-                <span className="text-xs bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full">
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 dark:border-gray-700/50">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">原始图片</h3>
+                <span className="px-4 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl font-semibold text-sm">
                   原图
                 </span>
               </div>
-              <div className="relative aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                <img
-                  src={previewUrl}
-                  alt="Original"
-                  className="w-full h-full object-contain"
-                />
+              <div className="relative aspect-video bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-2xl overflow-hidden shadow-inner">
+                <img src={previewUrl} alt="Original" className="w-full h-full object-contain" />
               </div>
               {fileInfo && (
-                <div className="mt-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      文件大小:
-                    </span>
-                    <span className="font-medium text-gray-900 dark:text-white">
+                <div className="mt-6 space-y-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-6">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">文件大小</span>
+                    <span className="font-bold text-gray-900 dark:text-white text-lg">
                       {formatFileSize(fileInfo.originalSize)}
                     </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      图片尺寸:
-                    </span>
-                    <span className="font-medium text-gray-900 dark:text-white">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">图片尺寸</span>
+                    <span className="font-bold text-gray-900 dark:text-white text-lg">
                       {fileInfo.width} × {fileInfo.height}px
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      文件格式:
-                    </span>
-                    <span className="font-medium text-gray-900 dark:text-white uppercase">
-                      {selectedFile?.type.replace("image/", "")}
                     </span>
                   </div>
                 </div>
@@ -421,166 +336,60 @@ export default function CompressPage() {
 
             {/* Compressed Image */}
             {compressedUrl ? (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    压缩后
-                  </h3>
-                  <span className="text-xs bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200 px-3 py-1 rounded-full font-medium">
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 dark:border-gray-700/50">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">压缩后</h3>
+                  <span className="px-4 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold text-sm shadow-lg">
                     已压缩
                   </span>
                 </div>
-                <div className="relative aspect-video bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                  <img
-                    src={compressedUrl}
-                    alt="Compressed"
-                    className="w-full h-full object-contain"
-                  />
+                <div className="relative aspect-video bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-2xl overflow-hidden shadow-inner">
+                  <img src={compressedUrl} alt="Compressed" className="w-full h-full object-contain" />
                 </div>
                 {fileInfo?.compressedSize && (
-                  <div className="mt-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        压缩后大小:
-                      </span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                  <div className="mt-6 space-y-3 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-2xl p-6 border border-green-200/50 dark:border-green-800/30">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">压缩后</span>
+                      <span className="font-bold text-gray-900 dark:text-white text-lg">
                         {formatFileSize(fileInfo.compressedSize)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        减少大小:
-                      </span>
-                      <span className="font-medium text-green-600 dark:text-green-400">
-                        {formatFileSize(
-                          fileInfo.originalSize - fileInfo.compressedSize
-                        )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">节省空间</span>
+                      <span className="font-bold text-green-600 dark:text-green-400 text-lg">
+                        {formatFileSize(fileInfo.originalSize - fileInfo.compressedSize)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        压缩率:
-                      </span>
-                      <span className="font-semibold text-green-600 dark:text-green-400">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">压缩率</span>
+                      <span className="font-bold text-green-600 dark:text-green-400 text-2xl">
                         {compressionRate}%
                       </span>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-500"
-                            style={{
-                              width: `${100 - parseFloat(compressionRate)}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                          {100 - parseFloat(compressionRate)}%
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-500">
-                        保留了原图的{" "}
-                        {(100 - parseFloat(compressionRate)).toFixed(1)}% 大小
-                      </p>
                     </div>
                   </div>
                 )}
                 <button
                   onClick={handleDownload}
-                  className="mt-6 w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg flex items-center justify-center gap-2"
+                  className="mt-6 w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-5 rounded-2xl font-bold text-lg hover:shadow-2xl hover:scale-[1.02] transition-all shadow-xl flex items-center justify-center gap-3"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                   下载压缩图片
                 </button>
               </div>
             ) : (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex items-center justify-center">
-                <div className="text-center py-12">
-                  <div className="text-5xl mb-4">⏳</div>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    调整压缩质量后点击"开始压缩"
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 dark:border-gray-700/50 flex items-center justify-center">
+                <div className="text-center py-16">
+                  <div className="text-7xl mb-6">⏳</div>
+                  <p className="text-gray-600 dark:text-gray-400 text-lg font-medium">
+                    调整质量后点击开始压缩
                   </p>
                 </div>
               </div>
             )}
           </div>
         )}
-
-        {/* Tips Section */}
-        <div className="mt-12 bg-blue-50 dark:bg-gray-800 rounded-2xl p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-            💡 使用提示
-          </h3>
-          <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-            <li>
-              • <strong>推荐质量设置：</strong>70-90% 可以在质量和大小之间取得良好平衡
-            </li>
-            <li>
-              • <strong>格式支持：</strong>支持 JPG、PNG、WebP、GIF
-              等主流图片格式
-            </li>
-            <li>
-              • <strong>隐私安全：</strong>
-              所有处理都在本地浏览器完成，不会上传到服务器
-            </li>
-            <li>
-              • <strong>PNG 透明度：</strong>PNG
-              格式会保留透明通道，但压缩效果有限
-            </li>
-            <li>
-              • <strong>最佳实践：</strong>网页使用建议 60-80%
-              质量，打印使用建议 90%+ 质量
-            </li>
-            <li>
-              • <strong>文件命名：</strong>压缩后的文件会自动添加
-              "compressed_" 前缀
-            </li>
-          </ul>
-        </div>
-
-        {/* Feature Cards */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md">
-            <div className="text-3xl mb-3">⚡</div>
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-              极速处理
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              基于 Canvas API 的本地处理，无需等待上传下载，瞬间完成压缩
-            </p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md">
-            <div className="text-3xl mb-3">🔒</div>
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-              隐私保护
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              图片不会离开你的设备，完全在浏览器本地处理，100% 安全
-            </p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md">
-            <div className="text-3xl mb-3">🎯</div>
-            <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-              精确控制
-            </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              自由调节压缩质量，实时预览效果，找到最适合的平衡点
-            </p>
-          </div>
-        </div>
       </main>
     </div>
   );
