@@ -11,26 +11,14 @@ interface GeneratedImage {
 
 export default function GeneratePage() {
   const [prompt, setPrompt] = useState("");
-  const [negativePrompt, setNegativePrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
-  const [style, setStyle] = useState<string>("realistic");
-  const [aspectRatio, setAspectRatio] = useState<string>("1:1");
+  const [size, setSize] = useState<string>("2K");
+  const [error, setError] = useState<string>("");
 
-  const styles = [
-    { id: "realistic", name: "写实风格", emoji: "📷" },
-    { id: "anime", name: "动漫风格", emoji: "🎨" },
-    { id: "oil", name: "油画风格", emoji: "🖼️" },
-    { id: "watercolor", name: "水彩风格", emoji: "💧" },
-    { id: "sketch", name: "素描风格", emoji: "✏️" },
-    { id: "3d", name: "3D渲染", emoji: "🎮" },
-  ];
-
-  const aspectRatios = [
-    { id: "1:1", name: "正方形", size: "1024x1024" },
-    { id: "16:9", name: "横屏", size: "1024x576" },
-    { id: "9:16", name: "竖屏", size: "576x1024" },
-    { id: "4:3", name: "标准", size: "1024x768" },
+  const sizeOptions = [
+    { id: "1K", name: "标清 1K", description: "1024x1024" },
+    { id: "2K", name: "高清 2K", description: "2048x2048" },
   ];
 
   const handleGenerate = useCallback(async () => {
@@ -40,25 +28,47 @@ export default function GeneratePage() {
     }
 
     setIsGenerating(true);
+    setError("");
 
-    // 模拟生成延迟
-    setTimeout(() => {
-      // 实际项目中，这里应该调用 AI 生图 API
-      alert(
-        `AI 生图功能需要集成第三方 API\n\n推荐服务：\n• Stable Diffusion\n• DALL-E (OpenAI)\n• Midjourney\n• 文心一格（百度）\n• 通义万相（阿里）\n\n提示词：${prompt}\n风格：${styles.find((s) => s.id === style)?.name}\n尺寸：${aspectRatios.find((r) => r.id === aspectRatio)?.size}`
-      );
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          size: size,
+        }),
+      });
 
-      // 添加一个模拟的生成记录
-      const newImage: GeneratedImage = {
-        url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2Y3ZjdmNyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjIwIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5o6l5YWlIEFJIEFQSTwvdGV4dD48L3N2Zz4=",
-        prompt: prompt,
-        timestamp: Date.now(),
-      };
+      const data = await response.json();
 
-      setGeneratedImages((prev) => [newImage, ...prev]);
+      if (!data.success) {
+        throw new Error(data.error || "生成图片失败");
+      }
+
+      // 从 API 响应中提取图片 URL
+      if (data.data && data.data.data && data.data.data.length > 0) {
+        const imageUrl = data.data.data[0].url;
+        const newImage: GeneratedImage = {
+          url: imageUrl,
+          prompt: prompt,
+          timestamp: Date.now(),
+        };
+
+        setGeneratedImages((prev) => [newImage, ...prev]);
+      } else {
+        throw new Error("API 返回数据格式错误");
+      }
+    } catch (err) {
+      console.error("Generate error:", err);
+      setError(err instanceof Error ? err.message : "生成图片失败，请重试");
+      alert(err instanceof Error ? err.message : "生成图片失败，请重试");
+    } finally {
       setIsGenerating(false);
-    }, 2000);
-  }, [prompt, style, aspectRatio, styles, aspectRatios]);
+    }
+  }, [prompt, size]);
 
   const handleDownload = useCallback((image: GeneratedImage) => {
     const a = document.createElement("a");
@@ -70,12 +80,12 @@ export default function GeneratePage() {
   }, []);
 
   const presetPrompts = [
-    "一只可爱的橘猫，坐在窗台上看着窗外的雪景",
-    "未来科幻城市，霓虹灯，赛博朋克风格",
-    "日式庭院，樱花盛开，宁静优美",
-    "梵高风格的星空下的小镇",
-    "宫崎骏风格的森林精灵",
-    "中国山水画，水墨画风格",
+    "一只可爱的橘猫，坐在窗台上看着窗外的雪景，温暖的阳光，高清摄影",
+    "未来科幻城市，霓虹灯，赛博朋克风格，夜晚，雨后反光，4K画质",
+    "日式庭院，樱花盛开，宁静优美，清晨阳光，专业摄影",
+    "梵高风格的星空下的小镇，油画质感，浓郁色彩",
+    "宫崎骏风格的森林精灵，动画风格，梦幻氛围",
+    "中国山水画，水墨画风格，飘渺云雾，意境深远",
   ];
 
   return (
@@ -143,61 +153,25 @@ export default function GeneratePage() {
               </div>
             </div>
 
-            {/* Negative Prompt */}
+            {/* Size Selection */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                反向提示词（可选）
-              </h3>
-              <textarea
-                value={negativePrompt}
-                onChange={(e) => setNegativePrompt(e.target.value)}
-                placeholder="描述你不想要的元素，如：模糊、低质量、变形..."
-                className="w-full h-24 px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-gray-900 dark:text-white placeholder-gray-500"
-              />
-            </div>
-
-            {/* Style Selection */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                艺术风格
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {styles.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setStyle(s.id)}
-                    className={`py-3 px-4 rounded-lg font-medium transition-all text-left ${
-                      style === s.id
-                        ? "bg-orange-500 text-white shadow-lg"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
-                  >
-                    <span className="text-xl mr-2">{s.emoji}</span>
-                    <span className="text-sm">{s.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Aspect Ratio */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                画面比例
+                图片尺寸
               </h3>
               <div className="space-y-2">
-                {aspectRatios.map((ratio) => (
+                {sizeOptions.map((sizeOption) => (
                   <button
-                    key={ratio.id}
-                    onClick={() => setAspectRatio(ratio.id)}
+                    key={sizeOption.id}
+                    onClick={() => setSize(sizeOption.id)}
                     className={`w-full py-3 px-4 rounded-lg font-medium transition-all text-left ${
-                      aspectRatio === ratio.id
+                      size === sizeOption.id
                         ? "bg-orange-500 text-white shadow-lg"
                         : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                     }`}
                   >
-                    <span className="font-semibold">{ratio.name}</span>
+                    <span className="font-semibold">{sizeOption.name}</span>
                     <span className="text-sm ml-2 opacity-75">
-                      ({ratio.size})
+                      ({sizeOption.description})
                     </span>
                   </button>
                 ))}
@@ -265,46 +239,29 @@ export default function GeneratePage() {
             {/* API Integration Info */}
             <div className="mt-6 bg-orange-50 dark:bg-gray-800 rounded-2xl p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                🔌 AI 生图服务集成
+                🔌 已集成火山引擎 AI 生图
               </h3>
               <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                <p className="font-medium">推荐的 AI 生图服务：</p>
-                <div className="space-y-2 pl-4">
-                  <div>
-                    <strong>1. Stable Diffusion</strong>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      • 开源方案，可自建或使用 Stability AI API
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      • 灵活性高，支持多种模型和风格
-                    </p>
+                <p>
+                  当前使用火山引擎（Volcano Engine）图片生成 API，支持高质量的
+                  AI 图片生成能力。
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    <span>支持 1K 和 2K 分辨率图片生成</span>
                   </div>
-                  <div>
-                    <strong>2. DALL-E (OpenAI)</strong>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      • 强大的图像生成能力，效果出色
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      • API: https://platform.openai.com/docs/guides/images
-                    </p>
+                  <div className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    <span>中文提示词支持，理解能力强</span>
                   </div>
-                  <div>
-                    <strong>3. 文心一格（百度）</strong>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      • 国内服务，中文理解能力强
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      • API: https://yige.baidu.com/
-                    </p>
+                  <div className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    <span>快速生成，一般 10-30 秒内完成</span>
                   </div>
-                  <div>
-                    <strong>4. 通义万相（阿里）</strong>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      • 多种风格支持，适合商业使用
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      • API: https://www.aliyun.com/product/ai/tongyi
-                    </p>
+                  <div className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    <span>生成的图片包含水印标识</span>
                   </div>
                 </div>
               </div>
